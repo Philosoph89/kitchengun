@@ -9,6 +9,7 @@ RUN npm run build
 
 FROM node:20-alpine AS backend-deps
 WORKDIR /build/backend
+RUN apk add --no-cache python3 make g++
 COPY app/backend/package*.json ./
 RUN npm ci --omit=dev
 
@@ -26,7 +27,7 @@ COPY run.sh /run.sh
 RUN chmod a+x /run.sh
 
 ENV NODE_ENV=production \
-    APP_VERSION=1.0.2 \
+    APP_VERSION=1.0.3 \
     PORT=8099 \
     STATIC_DIR=/app/frontend/dist \
     DB_PATH=/data/kitchengun.sqlite \
