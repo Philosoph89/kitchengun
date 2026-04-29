@@ -1,0 +1,82 @@
+const API_BASE = import.meta.env.VITE_API_BASE_URL || '.';
+
+async function request(path, options = {}) {
+  const normalizedPath = path.replace(/^\/+/, '');
+  const normalizedBase = API_BASE.replace(/\/+$/, '');
+  const response = await fetch(`${normalizedBase}/${normalizedPath}`, {
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers
+    },
+    ...options
+  });
+
+  const text = await response.text();
+  const data = text ? JSON.parse(text) : null;
+
+  if (!response.ok) {
+    const error = new Error(data?.error || 'Die Anfrage ist fehlgeschlagen.');
+    error.status = response.status;
+    error.payload = data;
+    throw error;
+  }
+
+  return data;
+}
+
+export const api = {
+  getStats: () => request('/api/stats'),
+  getRecipes: (params = {}) => {
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value) searchParams.set(key, value);
+    });
+    const query = searchParams.toString();
+    return request(`/api/recipes${query ? `?${query}` : ''}`);
+  },
+  getRecipe: (id) => request(`/api/recipes/${id}`),
+  createRecipe: (payload) =>
+    request('/api/recipes', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    }),
+  updateRecipe: (id, payload) =>
+    request(`/api/recipes/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload)
+    }),
+  deleteRecipe: (id) =>
+    request(`/api/recipes/${id}`, {
+      method: 'DELETE'
+    }),
+  getShoppingList: () => request('/api/shopping-list'),
+  addShoppingItem: (payload) =>
+    request('/api/shopping-list', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    }),
+  addShoppingItems: (items) =>
+    request('/api/shopping-list/bulk', {
+      method: 'POST',
+      body: JSON.stringify({ items })
+    }),
+  toggleShoppingItem: (id, checked) =>
+    request(`/api/shopping-list/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ checked })
+    }),
+  deleteShoppingItem: (id) =>
+    request(`/api/shopping-list/${id}`, {
+      method: 'DELETE'
+    }),
+  clearCheckedShoppingItems: () =>
+    request('/api/shopping-list-clear', {
+      method: 'DELETE'
+    }),
+  searchChefkoch: (query) => request(`/api/chefkoch/search?q=${encodeURIComponent(query)}`),
+  importChefkochRecipe: (id) =>
+    request('/api/chefkoch/import', {
+      method: 'POST',
+      body: JSON.stringify({ id })
+    })
+};
