@@ -163,7 +163,7 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
     app: 'KitchenGun',
-    version: process.env.APP_VERSION || process.env.npm_package_version || '1.0.1'
+    version: process.env.APP_VERSION || process.env.npm_package_version || '1.0.2'
   });
 });
 
