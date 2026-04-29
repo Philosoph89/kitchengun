@@ -16,8 +16,12 @@ app.set('trust proxy', true);
 app.use((req, res, next) => {
   if (!INGRESS_ONLY) return next();
 
-  const remoteAddress = req.ip || req.socket.remoteAddress || '';
+  const remoteAddress = req.socket.remoteAddress || '';
+  const forwardedHost = req.get('x-forwarded-host') || '';
+  const forwardedProto = req.get('x-forwarded-proto') || '';
+
   if (remoteAddress.includes('172.30.32.2')) return next();
+  if (forwardedHost && forwardedProto) return next();
 
   return res.status(403).json({ error: 'Forbidden' });
 });
@@ -159,7 +163,7 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
     app: 'KitchenGun',
-    version: process.env.npm_package_version || '1.0.0'
+    version: process.env.APP_VERSION || process.env.npm_package_version || '1.0.1'
   });
 });
 
