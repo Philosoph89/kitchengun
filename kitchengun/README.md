@@ -2,6 +2,14 @@
 
 KitchenGun läuft als Home-Assistant-Add-on über Ingress. Das Add-on baut das React-Frontend, startet die Express-API und speichert die SQLite-Datenbank persistent in `/data/kitchengun.sqlite`.
 
+## Funktionen
+
+- Rezeptbuch mit Chefkoch-Import und Favoriten
+- Kochmodus mit Schritt-Checkliste
+- Wochenplan mit Frühstück, Mittag, Abendessen und Snack
+- Zutaten aus geplanten Mahlzeiten direkt auf die Einkaufsliste übernehmen
+- Einkaufsliste mit Mengenaggregation
+
 ## Installation
 
 1. Dieses Repository als Add-on-Repository in Home Assistant hinzufügen.

@@ -35,6 +35,11 @@ export const api = {
     return request(`/api/recipes${query ? `?${query}` : ''}`);
   },
   getRecipe: (id) => request(`/api/recipes/${id}`),
+  toggleFavorite: (id, favorite) =>
+    request(`/api/recipes/${id}/favorite`, {
+      method: 'PATCH',
+      body: JSON.stringify({ favorite })
+    }),
   createRecipe: (payload) =>
     request('/api/recipes', {
       method: 'POST',
@@ -72,6 +77,20 @@ export const api = {
   clearCheckedShoppingItems: () =>
     request('/api/shopping-list-clear', {
       method: 'DELETE'
+    }),
+  getMealPlan: (start, days = 7) => request(`/api/meal-plan?start=${start}&days=${days}`),
+  saveMealPlanEntry: (payload) =>
+    request('/api/meal-plan', {
+      method: 'PUT',
+      body: JSON.stringify(payload)
+    }),
+  deleteMealPlanEntry: (id) =>
+    request(`/api/meal-plan/${id}`, {
+      method: 'DELETE'
+    }),
+  addMealPlanToShoppingList: (id) =>
+    request(`/api/meal-plan/${id}/shopping-list`, {
+      method: 'POST'
     }),
   searchChefkoch: (query) => request(`/api/chefkoch/search?q=${encodeURIComponent(query)}`),
   importChefkochRecipe: (id) =>

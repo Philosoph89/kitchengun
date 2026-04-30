@@ -23,6 +23,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
         category TEXT,
         source TEXT,
         source_id TEXT,
+        favorite INTEGER DEFAULT 0,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT DEFAULT CURRENT_TIMESTAMP
       )`);
@@ -46,9 +47,23 @@ const db = new sqlite3.Database(dbPath, (err) => {
         checked INTEGER DEFAULT 0
       )`);
 
+      db.run(`CREATE TABLE IF NOT EXISTS meal_plan (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        plan_date TEXT NOT NULL,
+        meal_slot TEXT NOT NULL,
+        recipe_id INTEGER,
+        portions INTEGER,
+        notes TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(plan_date, meal_slot),
+        FOREIGN KEY (recipe_id) REFERENCES recipes (id)
+      )`);
+
       const recipeColumns = [
         ['source', 'TEXT'],
         ['source_id', 'TEXT'],
+        ['favorite', 'INTEGER DEFAULT 0'],
         ['created_at', 'TEXT'],
         ['updated_at', 'TEXT']
       ];
@@ -62,7 +77,8 @@ const db = new sqlite3.Database(dbPath, (err) => {
       });
 
       db.run(`UPDATE recipes
-              SET created_at = COALESCE(created_at, CURRENT_TIMESTAMP),
+              SET favorite = COALESCE(favorite, 0),
+                  created_at = COALESCE(created_at, CURRENT_TIMESTAMP),
                   updated_at = COALESCE(updated_at, CURRENT_TIMESTAMP)`);
     });
   }

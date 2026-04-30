@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ChefHat, Clock, Plus, Search, ShoppingCart, Users } from 'lucide-react';
+import { CalendarDays, ChefHat, Clock, Heart, Plus, Search, ShoppingCart, Users } from 'lucide-react';
 import { api } from '../lib/api';
 
 const fallbackImage =
@@ -11,6 +11,7 @@ export default function RecipeBook() {
   const [stats, setStats] = useState(null);
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('Alle');
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -22,7 +23,7 @@ export default function RecipeBook() {
       setError('');
       try {
         const [recipeData, statsData] = await Promise.all([
-          api.getRecipes({ search, category: category === 'Alle' ? '' : category }),
+          api.getRecipes({ search, category: category === 'Alle' ? '' : category, favorite: favoritesOnly ? '1' : '' }),
           api.getStats()
         ]);
 
@@ -42,13 +43,34 @@ export default function RecipeBook() {
       cancelled = true;
       window.clearTimeout(timeout);
     };
-  }, [search, category]);
+  }, [search, category, favoritesOnly]);
 
   const categories = useMemo(() => {
     const fromStats = stats?.categories?.map((item) => item.category).filter(Boolean) || [];
     const fromRecipes = recipes.map((recipe) => recipe.category).filter(Boolean);
     return ['Alle', ...Array.from(new Set([...fromStats, ...fromRecipes]))];
   }, [recipes, stats]);
+
+  const toggleFavorite = async (recipe, event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const nextFavorite = recipe.favorite ? 0 : 1;
+    setRecipes((current) => current.map((item) => (item.id === recipe.id ? { ...item, favorite: nextFavorite } : item)));
+    try {
+      await api.toggleFavorite(recipe.id, nextFavorite);
+      setStats((current) =>
+        current
+          ? {
+              ...current,
+              favorites: Math.max(0, (current.favorites || 0) + (nextFavorite ? 1 : -1))
+            }
+          : current
+      );
+    } catch (err) {
+      setError(err.message);
+      setRecipes((current) => current.map((item) => (item.id === recipe.id ? { ...item, favorite: recipe.favorite } : item)));
+    }
+  };
 
   return (
     <div className="stack-lg">
@@ -79,10 +101,24 @@ export default function RecipeBook() {
           </div>
         </div>
         <div className="metric">
+          <Heart size={20} />
+          <div>
+            <strong>{stats?.favorites ?? 0}</strong>
+            <span>Favoriten</span>
+          </div>
+        </div>
+        <div className="metric">
           <Users size={20} />
           <div>
             <strong>{stats?.categories?.length ?? 0}</strong>
             <span>Kategorien</span>
+          </div>
+        </div>
+        <div className="metric">
+          <CalendarDays size={20} />
+          <div>
+            <strong>{stats?.plannedMeals ?? 0}</strong>
+            <span>geplant</span>
           </div>
         </div>
       </section>
@@ -98,6 +134,9 @@ export default function RecipeBook() {
           />
         </div>
         <div className="segmented-control">
+          <button type="button" className={favoritesOnly ? 'active' : ''} onClick={() => setFavoritesOnly((value) => !value)}>
+            Favoriten
+          </button>
           {categories.map((item) => (
             <button
               type="button"
@@ -133,23 +172,34 @@ export default function RecipeBook() {
       ) : (
         <div className="recipe-grid">
           {recipes.map((recipe) => (
-            <Link to={`/recipe/${recipe.id}`} key={recipe.id} className="recipe-card">
-              <img src={recipe.image || fallbackImage} alt={recipe.title} className="recipe-image" />
-              <div className="recipe-content">
-                <div className="tag">{recipe.category || 'Allgemein'}</div>
-                <h2>{recipe.title}</h2>
-                <div className="recipe-meta">
-                  <span>
-                    <Clock size={16} />
-                    {recipe.total_time ?? (recipe.prep_time || 0) + (recipe.cook_time || 0)} Min
-                  </span>
-                  <span>
-                    <Users size={16} />
-                    {recipe.portions || 1} Portionen
-                  </span>
+            <article key={recipe.id} className="recipe-card">
+              <button
+                className={`favorite-button ${recipe.favorite ? 'active' : ''}`}
+                onClick={(event) => toggleFavorite(recipe, event)}
+                title={recipe.favorite ? 'Favorit entfernen' : 'Als Favorit markieren'}
+              >
+                <Heart size={18} fill={recipe.favorite ? 'currentColor' : 'none'} />
+              </button>
+              <Link to={`/recipe/${recipe.id}`} className="recipe-card-link">
+                <img src={recipe.image || fallbackImage} alt={recipe.title} className="recipe-image" />
+                <div className="recipe-content">
+                  <div className="recipe-card-topline">
+                    <div className="tag">{recipe.category || 'Allgemein'}</div>
+                  </div>
+                  <h2>{recipe.title}</h2>
+                  <div className="recipe-meta">
+                    <span>
+                      <Clock size={16} />
+                      {recipe.total_time ?? (recipe.prep_time || 0) + (recipe.cook_time || 0)} Min
+                    </span>
+                    <span>
+                      <Users size={16} />
+                      {recipe.portions || 1} Portionen
+                    </span>
+                  </div>
                 </div>
-              </div>
-            </Link>
+              </Link>
+            </article>
           ))}
         </div>
       )}

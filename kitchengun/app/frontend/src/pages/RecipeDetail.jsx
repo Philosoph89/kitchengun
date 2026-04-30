@@ -1,8 +1,27 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Check, Clock, Edit3, Minus, Plus, ShoppingCart, Trash2, Users } from 'lucide-react';
+import { ArrowLeft, Check, ChefHat, Clock, Edit3, Heart, Minus, Plus, RotateCcw, ShoppingCart, Trash2, Users } from 'lucide-react';
 import Modal from '../components/Modal';
 import { api } from '../lib/api';
+
+function splitInstructions(text = '') {
+  const normalized = text.replace(/\r/g, '').trim();
+  if (!normalized) return [];
+
+  const numbered = normalized
+    .split(/\n?\s*(?:\d+[).]\s+)/)
+    .map((step) => step.trim())
+    .filter(Boolean);
+  if (numbered.length > 1) return numbered;
+
+  const lines = normalized.split(/\n+/).map((step) => step.trim()).filter(Boolean);
+  if (lines.length > 1) return lines;
+
+  return normalized
+    .split(/(?<=[.!?])\s+(?=[A-ZÄÖÜ])/)
+    .map((step) => step.trim())
+    .filter(Boolean);
+}
 
 export default function RecipeDetail() {
   const { id } = useParams();
@@ -12,6 +31,8 @@ export default function RecipeDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [addingToList, setAddingToList] = useState(false);
+  const [isCookMode, setIsCookMode] = useState(false);
+  const [checkedSteps, setCheckedSteps] = useState([]);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
 
@@ -41,6 +62,34 @@ export default function RecipeDetail() {
   }, [id]);
 
   const multiplier = useMemo(() => portions / (recipe?.portions || 1), [portions, recipe]);
+  const steps = useMemo(() => splitInstructions(recipe?.instructions), [recipe]);
+  const completedSteps = checkedSteps.filter(Boolean).length;
+  const stepProgress = steps.length ? Math.round((completedSteps / steps.length) * 100) : 0;
+
+  useEffect(() => {
+    if (!recipe?.id || !steps.length) return;
+    const timeout = window.setTimeout(() => {
+      const saved = window.localStorage.getItem(`kitchengun:cook:${recipe.id}`);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          setCheckedSteps(Array.from({ length: steps.length }, (_, index) => Boolean(parsed[index])));
+          return;
+        } catch {
+          setCheckedSteps(Array.from({ length: steps.length }, () => false));
+        }
+      } else {
+        setCheckedSteps(Array.from({ length: steps.length }, () => false));
+      }
+    }, 0);
+
+    return () => window.clearTimeout(timeout);
+  }, [recipe?.id, steps.length]);
+
+  useEffect(() => {
+    if (!recipe?.id || !steps.length) return;
+    window.localStorage.setItem(`kitchengun:cook:${recipe.id}`, JSON.stringify(checkedSteps));
+  }, [checkedSteps, recipe?.id, steps.length]);
 
   const confirmDelete = async () => {
     await api.deleteRecipe(id);
@@ -66,6 +115,25 @@ export default function RecipeDetail() {
     }
   };
 
+  const toggleFavorite = async () => {
+    const nextFavorite = recipe.favorite ? 0 : 1;
+    setRecipe((current) => ({ ...current, favorite: nextFavorite }));
+    try {
+      await api.toggleFavorite(id, nextFavorite);
+    } catch (err) {
+      setError(err.message);
+      setRecipe((current) => ({ ...current, favorite: recipe.favorite }));
+    }
+  };
+
+  const toggleStep = (index) => {
+    setCheckedSteps((current) => current.map((value, itemIndex) => (itemIndex === index ? !value : value)));
+  };
+
+  const resetCookMode = () => {
+    setCheckedSteps(Array.from({ length: steps.length }, () => false));
+  };
+
   if (loading) return <div className="empty-state">Rezept wird geladen.</div>;
   if (error && !recipe) return <div className="notice notice-error">{error}</div>;
 
@@ -88,6 +156,16 @@ export default function RecipeDetail() {
               <h1>{recipe.title}</h1>
             </div>
             <div className="icon-actions">
+              <button
+                className={`icon-button favorite-inline ${recipe.favorite ? 'active' : ''}`}
+                onClick={toggleFavorite}
+                title={recipe.favorite ? 'Favorit entfernen' : 'Als Favorit markieren'}
+              >
+                <Heart size={20} fill={recipe.favorite ? 'currentColor' : 'none'} />
+              </button>
+              <button className={`icon-button ${isCookMode ? 'active' : ''}`} onClick={() => setIsCookMode((value) => !value)} title="Kochmodus">
+                <ChefHat size={20} />
+              </button>
               <button className="icon-button" onClick={() => navigate(`/recipe/edit/${id}`)} title="Bearbeiten">
                 <Edit3 size={20} />
               </button>
@@ -146,8 +224,39 @@ export default function RecipeDetail() {
             </aside>
 
             <section className="instructions-panel">
-              <h2>Zubereitung</h2>
-              <div>{recipe.instructions}</div>
+              <div className="instructions-title-row">
+                <h2>{isCookMode ? 'Kochmodus' : 'Zubereitung'}</h2>
+                {isCookMode && (
+                  <button className="btn btn-secondary compact" onClick={resetCookMode}>
+                    <RotateCcw size={16} />
+                    Zurücksetzen
+                  </button>
+                )}
+              </div>
+
+              {isCookMode ? (
+                <div className="cook-mode">
+                  <div className="cook-progress">
+                    <span>{completedSteps} von {steps.length} Schritten</span>
+                    <strong>{stepProgress}%</strong>
+                    <div className="progress-track">
+                      <span style={{ width: `${stepProgress}%` }} />
+                    </div>
+                  </div>
+                  <ol className="cook-steps">
+                    {steps.map((step, index) => (
+                      <li key={`${step}-${index}`} className={checkedSteps[index] ? 'done' : ''}>
+                        <button className={`checkbox-custom ${checkedSteps[index] ? 'checked' : ''}`} onClick={() => toggleStep(index)}>
+                          {checkedSteps[index] && <Check size={16} />}
+                        </button>
+                        <span>{step}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              ) : (
+                <div>{recipe.instructions}</div>
+              )}
             </section>
           </div>
         </div>

@@ -5,6 +5,7 @@ import RecipeDetail from './pages/RecipeDetail';
 import ShoppingList from './pages/ShoppingList';
 import RecipeForm from './pages/RecipeForm';
 import ChefkochSearch from './pages/ChefkochSearch';
+import MealPlanner from './pages/MealPlanner';
 
 function App() {
   return (
@@ -14,6 +15,7 @@ function App() {
         <Routes>
           <Route path="/" element={<RecipeBook />} />
           <Route path="/discover" element={<ChefkochSearch />} />
+          <Route path="/planner" element={<MealPlanner />} />
           <Route path="/recipe/new" element={<RecipeForm />} />
           <Route path="/recipe/edit/:id" element={<RecipeForm />} />
           <Route path="/recipe/:id" element={<RecipeDetail />} />

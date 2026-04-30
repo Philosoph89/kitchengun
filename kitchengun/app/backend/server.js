@@ -63,6 +63,16 @@ function normalizeText(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+function normalizeDate(value) {
+  const date = normalizeText(value);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    const error = new Error('Datum muss im Format YYYY-MM-DD übergeben werden.');
+    error.status = 400;
+    throw error;
+  }
+  return date;
+}
+
 function normalizeIngredient(ingredient) {
   const name = normalizeText(ingredient?.name);
   if (!name) return null;
@@ -159,21 +169,47 @@ async function addShoppingItem(item) {
   return { id: result.lastID, name, amount, unit, checked: 0 };
 }
 
+async function addRecipeIngredientsToShoppingList(recipeId, portions) {
+  const recipe = await getRecipeWithIngredients(recipeId);
+  if (!recipe) {
+    const error = new Error('Rezept nicht gefunden.');
+    error.status = 404;
+    throw error;
+  }
+
+  const targetPortions = Math.max(1, toNumber(portions, recipe.portions || 1));
+  const multiplier = targetPortions / (recipe.portions || 1);
+  const added = [];
+
+  for (const ingredient of recipe.ingredients) {
+    const saved = await addShoppingItem({
+      name: ingredient.name,
+      amount: ingredient.amount ? ingredient.amount * multiplier : null,
+      unit: ingredient.unit
+    });
+    if (saved) added.push(saved);
+  }
+
+  return { recipe, count: added.length };
+}
+
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
     app: 'KitchenGun',
-    version: process.env.APP_VERSION || process.env.npm_package_version || '1.0.3'
+    version: process.env.APP_VERSION || process.env.npm_package_version || '1.1.0'
   });
 });
 
 app.get(
   '/api/stats',
   asyncHandler(async (req, res) => {
-    const [recipes, shopping, checked] = await Promise.all([
+    const [recipes, favorites, shopping, checked, planned] = await Promise.all([
       dbGet('SELECT COUNT(*) AS count FROM recipes'),
+      dbGet('SELECT COUNT(*) AS count FROM recipes WHERE favorite = 1'),
       dbGet('SELECT COUNT(*) AS count FROM shopping_list'),
-      dbGet('SELECT COUNT(*) AS count FROM shopping_list WHERE checked = 1')
+      dbGet('SELECT COUNT(*) AS count FROM shopping_list WHERE checked = 1'),
+      dbGet('SELECT COUNT(*) AS count FROM meal_plan WHERE recipe_id IS NOT NULL')
     ]);
 
     const categories = await dbAll(
@@ -182,8 +218,10 @@ app.get(
 
     res.json({
       recipes: recipes.count,
+      favorites: favorites.count,
       shoppingItems: shopping.count,
       checkedItems: checked.count,
+      plannedMeals: planned.count,
       categories
     });
   })
@@ -196,6 +234,7 @@ app.get(
   asyncHandler(async (req, res) => {
     const search = normalizeText(req.query.search);
     const category = normalizeText(req.query.category);
+    const favoritesOnly = req.query.favorite === '1' || req.query.favorite === 'true';
     const where = [];
     const params = [];
 
@@ -208,6 +247,10 @@ app.get(
     if (category && category !== 'Alle') {
       where.push('category = ?');
       params.push(category);
+    }
+
+    if (favoritesOnly) {
+      where.push('favorite = 1');
     }
 
     const rows = await dbAll(
@@ -232,6 +275,20 @@ app.get(
     const recipe = await getRecipeWithIngredients(req.params.id);
     if (!recipe) return res.status(404).json({ error: 'Rezept nicht gefunden.' });
     res.json(recipe);
+  })
+);
+
+app.patch(
+  '/api/recipes/:id/favorite',
+  asyncHandler(async (req, res) => {
+    const favorite = req.body.favorite ? 1 : 0;
+    const result = await dbRun(
+      'UPDATE recipes SET favorite = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [favorite, req.params.id]
+    );
+
+    if (result.changes === 0) return res.status(404).json({ error: 'Rezept nicht gefunden.' });
+    res.json({ id: Number(req.params.id), favorite });
   })
 );
 
@@ -311,6 +368,7 @@ app.delete(
     await dbExec('BEGIN TRANSACTION');
     try {
       await dbRun('DELETE FROM ingredients WHERE recipe_id = ?', [req.params.id]);
+      await dbRun('DELETE FROM meal_plan WHERE recipe_id = ?', [req.params.id]);
       const result = await dbRun('DELETE FROM recipes WHERE id = ?', [req.params.id]);
       await dbExec('COMMIT');
 
@@ -320,6 +378,100 @@ app.delete(
       await dbExec('ROLLBACK');
       throw err;
     }
+  })
+);
+
+// --- MEAL PLAN API ---
+
+app.get(
+  '/api/meal-plan',
+  asyncHandler(async (req, res) => {
+    const start = normalizeDate(req.query.start || new Date().toISOString().slice(0, 10));
+    const days = Math.min(31, Math.max(1, toNumber(req.query.days, 7)));
+
+    const rows = await dbAll(
+      `SELECT mp.id, mp.plan_date, mp.meal_slot, mp.recipe_id, mp.portions, mp.notes,
+              r.title, r.image, r.category,
+              COALESCE(r.prep_time, 0) + COALESCE(r.cook_time, 0) AS total_time
+       FROM meal_plan mp
+       LEFT JOIN recipes r ON r.id = mp.recipe_id
+       WHERE date(mp.plan_date) >= date(?)
+         AND date(mp.plan_date) < date(?, '+' || ? || ' day')
+       ORDER BY mp.plan_date ASC,
+                CASE mp.meal_slot
+                  WHEN 'breakfast' THEN 1
+                  WHEN 'lunch' THEN 2
+                  WHEN 'dinner' THEN 3
+                  ELSE 4
+                END ASC`,
+      [start, start, days]
+    );
+
+    res.json(rows);
+  })
+);
+
+app.put(
+  '/api/meal-plan',
+  asyncHandler(async (req, res) => {
+    const planDate = normalizeDate(req.body.plan_date);
+    const mealSlot = normalizeText(req.body.meal_slot) || 'dinner';
+    const allowedSlots = new Set(['breakfast', 'lunch', 'dinner', 'snack']);
+    if (!allowedSlots.has(mealSlot)) return res.status(400).json({ error: 'Ungültiger Mahlzeiten-Slot.' });
+
+    const recipeId = toNumber(req.body.recipe_id);
+    if (recipeId !== null) {
+      const recipe = await dbGet('SELECT id FROM recipes WHERE id = ?', [recipeId]);
+      if (!recipe) return res.status(404).json({ error: 'Rezept nicht gefunden.' });
+    }
+
+    const portions = Math.max(1, toNumber(req.body.portions, 2));
+    const notes = normalizeText(req.body.notes) || null;
+    const result = await dbRun(
+      `INSERT INTO meal_plan (plan_date, meal_slot, recipe_id, portions, notes, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+       ON CONFLICT(plan_date, meal_slot)
+       DO UPDATE SET recipe_id = excluded.recipe_id,
+                     portions = excluded.portions,
+                     notes = excluded.notes,
+                     updated_at = CURRENT_TIMESTAMP`,
+      [planDate, mealSlot, recipeId, portions, notes]
+    );
+
+    const row = await dbGet(
+      `SELECT mp.id, mp.plan_date, mp.meal_slot, mp.recipe_id, mp.portions, mp.notes,
+              r.title, r.image, r.category
+       FROM meal_plan mp
+       LEFT JOIN recipes r ON r.id = mp.recipe_id
+       WHERE mp.plan_date = ? AND mp.meal_slot = ?`,
+      [planDate, mealSlot]
+    );
+
+    res.status(result.lastID ? 201 : 200).json(row);
+  })
+);
+
+app.delete(
+  '/api/meal-plan/:id',
+  asyncHandler(async (req, res) => {
+    const result = await dbRun('DELETE FROM meal_plan WHERE id = ?', [req.params.id]);
+    if (result.changes === 0) return res.status(404).json({ error: 'Planung nicht gefunden.' });
+    res.json({ message: 'Planung entfernt.' });
+  })
+);
+
+app.post(
+  '/api/meal-plan/:id/shopping-list',
+  asyncHandler(async (req, res) => {
+    const plan = await dbGet('SELECT * FROM meal_plan WHERE id = ?', [req.params.id]);
+    if (!plan || !plan.recipe_id) return res.status(404).json({ error: 'Geplantes Rezept nicht gefunden.' });
+
+    const result = await addRecipeIngredientsToShoppingList(plan.recipe_id, plan.portions);
+    res.status(201).json({
+      message: 'Zutaten hinzugefügt.',
+      count: result.count,
+      recipe: result.recipe.title
+    });
   })
 );
 
