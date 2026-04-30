@@ -558,7 +558,7 @@ app.get(
     const q = normalizeText(req.query.q);
     if (!q) return res.status(400).json({ error: 'Suchbegriff fehlt.' });
 
-    const response = await fetch(`https://api.chefkoch.de/v2/recipes?query=${encodeURIComponent(q)}&limit=12`);
+    const response = await fetch(`https://api.chefkoch.de/v2/recipes?query=${encodeURIComponent(q)}&limit=30`);
     if (!response.ok) {
       return res.status(502).json({ error: 'Chefkoch ist aktuell nicht erreichbar.' });
     }
