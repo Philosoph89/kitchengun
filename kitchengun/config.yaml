@@ -1,5 +1,5 @@
 name: KitchenGun
-version: "1.1.0"
+version: "1.2.0"
 slug: kitchengun
 description: Rezeptbuch, Chefkoch-Import und Einkaufsliste für Home Assistant.
 url: https://github.com/philippmueller/KitchenGun

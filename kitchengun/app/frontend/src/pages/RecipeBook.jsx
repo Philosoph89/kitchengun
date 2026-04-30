@@ -6,9 +6,32 @@ import { api } from '../lib/api';
 const fallbackImage =
   'https://images.unsplash.com/photo-1495195134817-a1a2807b9361?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80';
 
+const compactDayFormatter = new Intl.DateTimeFormat('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' });
+const slotLabels = {
+  breakfast: 'Frühstück',
+  lunch: 'Mittag',
+  dinner: 'Abend',
+  snack: 'Snack'
+};
+
+function toIsoDate(date) {
+  const copy = new Date(date);
+  copy.setMinutes(copy.getMinutes() - copy.getTimezoneOffset());
+  return copy.toISOString().slice(0, 10);
+}
+
+function startOfWeek(date = new Date()) {
+  const copy = new Date(date);
+  const day = copy.getDay() || 7;
+  copy.setDate(copy.getDate() - day + 1);
+  copy.setHours(0, 0, 0, 0);
+  return copy;
+}
+
 export default function RecipeBook() {
   const [recipes, setRecipes] = useState([]);
   const [stats, setStats] = useState(null);
+  const [mealPlan, setMealPlan] = useState([]);
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('Alle');
   const [favoritesOnly, setFavoritesOnly] = useState(false);
@@ -22,14 +45,16 @@ export default function RecipeBook() {
       setLoading(true);
       setError('');
       try {
-        const [recipeData, statsData] = await Promise.all([
+        const [recipeData, statsData, planData] = await Promise.all([
           api.getRecipes({ search, category: category === 'Alle' ? '' : category, favorite: favoritesOnly ? '1' : '' }),
-          api.getStats()
+          api.getStats(),
+          api.getMealPlan(toIsoDate(startOfWeek()), 7)
         ]);
 
         if (!cancelled) {
           setRecipes(recipeData);
           setStats(statsData);
+          setMealPlan(planData);
         }
       } catch (err) {
         if (!cancelled) setError(err.message);
@@ -50,6 +75,15 @@ export default function RecipeBook() {
     const fromRecipes = recipes.map((recipe) => recipe.category).filter(Boolean);
     return ['Alle', ...Array.from(new Set([...fromStats, ...fromRecipes]))];
   }, [recipes, stats]);
+
+  const plannedMeals = useMemo(
+    () =>
+      [...mealPlan]
+        .filter((entry) => entry.recipe_id)
+        .sort((a, b) => `${a.plan_date}:${a.meal_slot}`.localeCompare(`${b.plan_date}:${b.meal_slot}`))
+        .slice(0, 6),
+    [mealPlan]
+  );
 
   const toggleFavorite = async (recipe, event) => {
     event.preventDefault();
@@ -121,6 +155,43 @@ export default function RecipeBook() {
             <span>geplant</span>
           </div>
         </div>
+      </section>
+
+      <section className="home-plan-panel">
+        <div className="home-plan-header">
+          <div>
+            <p className="eyebrow">Diese Woche</p>
+            <h2>Wochenplan</h2>
+          </div>
+          <Link to="/planner" className="btn btn-secondary compact">
+            <CalendarDays size={16} />
+            Planer öffnen
+          </Link>
+        </div>
+        {plannedMeals.length ? (
+          <div className="home-plan-list">
+            {plannedMeals.map((entry) => (
+              <Link to={`/recipe/${entry.recipe_id}`} className="home-plan-item" key={entry.id}>
+                {entry.image && <img src={entry.image} alt="" />}
+                <span>
+                  <strong>{entry.title}</strong>
+                  <small>
+                    {compactDayFormatter.format(new Date(entry.plan_date))} · {slotLabels[entry.meal_slot] || entry.meal_slot} ·{' '}
+                    {entry.portions || 2} Portionen
+                  </small>
+                </span>
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <div className="home-plan-empty">
+            <span>Noch nichts geplant.</span>
+            <Link to="/planner" className="btn btn-primary compact">
+              <Plus size={16} />
+              Woche planen
+            </Link>
+          </div>
+        )}
       </section>
 
       <section className="toolbar" aria-label="Rezepte filtern">
