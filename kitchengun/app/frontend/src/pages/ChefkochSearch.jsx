@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Download, Clock, Star } from 'lucide-react';
+import { Search, Download, Clock, Star, Eye, Users } from 'lucide-react';
 import Modal from '../components/Modal';
 import { api } from '../lib/api';
 
@@ -10,6 +10,8 @@ export default function ChefkochSearch() {
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [importingId, setImportingId] = useState(null);
+  const [previewLoadingId, setPreviewLoadingId] = useState(null);
+  const [previewRecipe, setPreviewRecipe] = useState(null);
   const [modalState, setModalState] = useState({ isOpen: false, title: '', message: '' });
 
   const handleSearch = async (e) => {
@@ -40,6 +42,18 @@ export default function ChefkochSearch() {
       }
     }
     setImportingId(null);
+  };
+
+  const handlePreview = async (id) => {
+    setPreviewLoadingId(id);
+    try {
+      setPreviewRecipe(await api.getChefkochRecipe(id));
+    } catch (err) {
+      console.error(err);
+      setModalState({ isOpen: true, title: 'Vorschau fehlgeschlagen', message: err.message });
+    } finally {
+      setPreviewLoadingId(null);
+    }
   };
 
   return (
@@ -93,19 +107,91 @@ export default function ChefkochSearch() {
                   )}
                 </div>
                 
-                <button 
-                  className="btn btn-secondary" 
-                  style={{ width: '100%', borderColor: 'var(--accent-primary)', color: 'var(--accent-primary)' }}
-                  onClick={() => handleImport(recipe.id)}
-                  disabled={importingId === recipe.id}
-                >
-                  <Download size={18} /> {importingId === recipe.id ? 'Importiert...' : 'Importieren'}
-                </button>
+                <div className="discover-actions">
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => handlePreview(recipe.id)}
+                    disabled={previewLoadingId === recipe.id}
+                  >
+                    <Eye size={18} /> {previewLoadingId === recipe.id ? 'Lädt...' : 'Ansehen'}
+                  </button>
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => handleImport(recipe.id)}
+                    disabled={importingId === recipe.id}
+                    title="Importieren"
+                  >
+                    <Download size={18} /> {importingId === recipe.id ? 'Importiert...' : 'Importieren'}
+                  </button>
+                </div>
               </div>
             </div>
           ))}
         </div>
       )}
+
+      <Modal
+        isOpen={Boolean(previewRecipe)}
+        onClose={() => setPreviewRecipe(null)}
+        title={previewRecipe?.title}
+        actions={
+          <>
+            {previewRecipe?.alreadyImportedId && (
+              <button className="btn btn-secondary" onClick={() => navigate(`/recipe/${previewRecipe.alreadyImportedId}`)}>
+                Öffnen
+              </button>
+            )}
+            {!previewRecipe?.alreadyImportedId && (
+              <button className="btn btn-primary" onClick={() => handleImport(previewRecipe.id)} disabled={importingId === previewRecipe?.id}>
+                <Download size={18} />
+                Importieren
+              </button>
+            )}
+          </>
+        }
+      >
+        {previewRecipe && (
+          <div className="chefkoch-preview">
+            {previewRecipe.image && <img src={previewRecipe.image} alt={previewRecipe.title} />}
+            <div className="preview-meta">
+              <span>
+                <Clock size={16} />
+                {(previewRecipe.prep_time || 0) + (previewRecipe.cook_time || 0)} Min
+              </span>
+              <span>
+                <Users size={16} />
+                {previewRecipe.portions || 2} Portionen
+              </span>
+              {previewRecipe.rating && (
+                <span>
+                  <Star size={16} fill="currentColor" />
+                  {previewRecipe.rating.toFixed(1)}
+                </span>
+              )}
+            </div>
+
+            <section>
+              <h3>Zutaten</h3>
+              <ul className="preview-ingredients">
+                {previewRecipe.ingredients.slice(0, 12).map((ingredient, index) => (
+                  <li key={`${ingredient.name}-${index}`}>
+                    <span>{ingredient.name}</span>
+                    <strong>
+                      {ingredient.amount || ''}
+                      {ingredient.unit ? ` ${ingredient.unit}` : ''}
+                    </strong>
+                  </li>
+                ))}
+              </ul>
+            </section>
+
+            <section>
+              <h3>Zubereitung</h3>
+              <p>{previewRecipe.instructions}</p>
+            </section>
+          </div>
+        )}
+      </Modal>
 
       <Modal 
         isOpen={modalState.isOpen} 

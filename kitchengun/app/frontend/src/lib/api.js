@@ -93,6 +93,7 @@ export const api = {
       method: 'POST'
     }),
   searchChefkoch: (query) => request(`/api/chefkoch/search?q=${encodeURIComponent(query)}`),
+  getChefkochRecipe: (id) => request(`/api/chefkoch/recipes/${id}`),
   importChefkochRecipe: (id) =>
     request('/api/chefkoch/import', {
       method: 'POST',

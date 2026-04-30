@@ -193,11 +193,46 @@ async function addRecipeIngredientsToShoppingList(recipeId, portions) {
   return { recipe, count: added.length };
 }
 
+function imageFromTemplate(template) {
+  return template ? template.replace('<format>', 'crop-960x720') : null;
+}
+
+function ingredientsFromChefkoch(data) {
+  return Array.isArray(data.ingredientGroups)
+    ? data.ingredientGroups.flatMap((group) =>
+        Array.isArray(group.ingredients)
+          ? group.ingredients.map((ingredient) => ({
+              name: ingredient.name,
+              amount: ingredient.amount,
+              unit: ingredient.unit
+            }))
+          : []
+      )
+    : [];
+}
+
+function normalizeChefkochRecipe(data, id) {
+  return {
+    id,
+    title: data.title,
+    image: imageFromTemplate(data.previewImageUrlTemplate),
+    prep_time: data.preparationTime || 0,
+    cook_time: data.cookingTime || 0,
+    portions: data.servings || 2,
+    instructions: data.instructions,
+    category: 'Importiert',
+    source: 'chefkoch',
+    source_id: id,
+    ingredients: ingredientsFromChefkoch(data),
+    rating: data.rating?.rating
+  };
+}
+
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
     app: 'KitchenGun',
-    version: process.env.APP_VERSION || process.env.npm_package_version || '1.2.0'
+    version: process.env.APP_VERSION || process.env.npm_package_version || '1.3.0'
   });
 });
 
@@ -568,15 +603,33 @@ app.get(
       ? data.results.map((r) => ({
           id: r.recipe.id,
           title: r.recipe.title,
-          image: r.recipe.previewImageUrlTemplate
-            ? r.recipe.previewImageUrlTemplate.replace('<format>', 'crop-960x720')
-            : null,
+          image: imageFromTemplate(r.recipe.previewImageUrlTemplate),
           prepTime: r.recipe.preparationTime,
           rating: r.recipe.rating?.rating
         }))
       : [];
 
     res.json(results);
+  })
+);
+
+app.get(
+  '/api/chefkoch/recipes/:id',
+  asyncHandler(async (req, res) => {
+    const id = normalizeText(req.params.id);
+    if (!id) return res.status(400).json({ error: 'Rezept-ID fehlt.' });
+
+    const response = await fetch(`https://api.chefkoch.de/v2/recipes/${encodeURIComponent(id)}`);
+    if (!response.ok) {
+      return res.status(502).json({ error: 'Das Rezept konnte bei Chefkoch nicht geladen werden.' });
+    }
+
+    const data = await response.json();
+    const existing = await dbGet('SELECT id FROM recipes WHERE source = ? AND source_id = ?', ['chefkoch', id]);
+    res.json({
+      ...normalizeChefkochRecipe(data, id),
+      alreadyImportedId: existing?.id || null
+    });
   })
 );
 
@@ -592,30 +645,7 @@ app.post(
     }
 
     const data = await response.json();
-    const recipe = normalizeRecipePayload({
-      title: data.title,
-      image: data.previewImageUrlTemplate
-        ? data.previewImageUrlTemplate.replace('<format>', 'crop-960x720')
-        : null,
-      prep_time: data.preparationTime || 0,
-      cook_time: data.cookingTime || 0,
-      portions: data.servings || 2,
-      instructions: data.instructions,
-      category: 'Importiert',
-      source: 'chefkoch',
-      source_id: id,
-      ingredients: Array.isArray(data.ingredientGroups)
-        ? data.ingredientGroups.flatMap((group) =>
-            Array.isArray(group.ingredients)
-              ? group.ingredients.map((ingredient) => ({
-                  name: ingredient.name,
-                  amount: ingredient.amount,
-                  unit: ingredient.unit
-                }))
-              : []
-          )
-        : []
-    });
+    const recipe = normalizeRecipePayload(normalizeChefkochRecipe(data, id));
 
     const existing = await dbGet('SELECT id FROM recipes WHERE source = ? AND source_id = ?', ['chefkoch', id]);
     if (existing) {

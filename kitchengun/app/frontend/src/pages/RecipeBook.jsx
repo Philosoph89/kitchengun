@@ -7,6 +7,7 @@ const fallbackImage =
   'https://images.unsplash.com/photo-1495195134817-a1a2807b9361?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80';
 
 const compactDayFormatter = new Intl.DateTimeFormat('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' });
+const shortWeekdayFormatter = new Intl.DateTimeFormat('de-DE', { weekday: 'short' });
 const slotLabels = {
   breakfast: 'Frühstück',
   lunch: 'Mittag',
@@ -25,6 +26,12 @@ function startOfWeek(date = new Date()) {
   const day = copy.getDay() || 7;
   copy.setDate(copy.getDate() - day + 1);
   copy.setHours(0, 0, 0, 0);
+  return copy;
+}
+
+function addDays(date, amount) {
+  const copy = new Date(date);
+  copy.setDate(copy.getDate() + amount);
   return copy;
 }
 
@@ -76,14 +83,20 @@ export default function RecipeBook() {
     return ['Alle', ...Array.from(new Set([...fromStats, ...fromRecipes]))];
   }, [recipes, stats]);
 
-  const plannedMeals = useMemo(
-    () =>
-      [...mealPlan]
-        .filter((entry) => entry.recipe_id)
-        .sort((a, b) => `${a.plan_date}:${a.meal_slot}`.localeCompare(`${b.plan_date}:${b.meal_slot}`))
-        .slice(0, 6),
-    [mealPlan]
-  );
+  const weekDays = useMemo(() => Array.from({ length: 7 }, (_, index) => addDays(startOfWeek(), index)), []);
+  const todayIso = toIsoDate(new Date());
+  const mealPlanByDay = useMemo(() => {
+    const map = new Map();
+    mealPlan
+      .filter((entry) => entry.recipe_id)
+      .forEach((entry) => {
+        const current = map.get(entry.plan_date) || [];
+        current.push(entry);
+        map.set(entry.plan_date, current);
+      });
+    return map;
+  }, [mealPlan]);
+  const todayMeals = mealPlanByDay.get(todayIso) || [];
 
   const toggleFavorite = async (recipe, event) => {
     event.preventDefault();
@@ -168,30 +181,65 @@ export default function RecipeBook() {
             Planer öffnen
           </Link>
         </div>
-        {plannedMeals.length ? (
-          <div className="home-plan-list">
-            {plannedMeals.map((entry) => (
-              <Link to={`/recipe/${entry.recipe_id}`} className="home-plan-item" key={entry.id}>
-                {entry.image && <img src={entry.image} alt="" />}
-                <span>
-                  <strong>{entry.title}</strong>
-                  <small>
-                    {compactDayFormatter.format(new Date(entry.plan_date))} · {slotLabels[entry.meal_slot] || entry.meal_slot} ·{' '}
-                    {entry.portions || 2} Portionen
-                  </small>
-                </span>
-              </Link>
-            ))}
+
+        {todayMeals.length ? (
+          <div className="today-menu">
+            <div className="today-menu-label">
+              <span>Heute gibt es</span>
+              <strong>{compactDayFormatter.format(new Date(todayIso))}</strong>
+            </div>
+            <div className="today-menu-meals">
+              {todayMeals.map((entry) => (
+                <Link to={`/recipe/${entry.recipe_id}`} className="today-meal-card" key={entry.id}>
+                  {entry.image && <img src={entry.image} alt="" />}
+                  <span>
+                    <small>{slotLabels[entry.meal_slot] || entry.meal_slot}</small>
+                    <strong>{entry.title}</strong>
+                  </span>
+                </Link>
+              ))}
+            </div>
           </div>
         ) : (
-          <div className="home-plan-empty">
-            <span>Noch nichts geplant.</span>
+          <div className="today-menu empty">
+            <div className="today-menu-label">
+              <span>Heute gibt es</span>
+              <strong>Noch offen</strong>
+            </div>
             <Link to="/planner" className="btn btn-primary compact">
               <Plus size={16} />
-              Woche planen
+              Heute planen
             </Link>
           </div>
         )}
+
+        <div className="home-week-board" aria-label="Wochenplan">
+          {weekDays.map((day) => {
+            const dayIso = toIsoDate(day);
+            const entries = mealPlanByDay.get(dayIso) || [];
+            const isToday = dayIso === todayIso;
+            return (
+              <Link to="/planner" className={`home-week-day ${isToday ? 'today' : ''}`} key={dayIso}>
+                <div className="home-week-day-head">
+                  <strong>{shortWeekdayFormatter.format(day)}</strong>
+                  <span>{day.getDate()}</span>
+                </div>
+                <div className="home-week-meals">
+                  {entries.length ? (
+                    entries.slice(0, 3).map((entry) => (
+                      <span key={entry.id}>
+                        <small>{slotLabels[entry.meal_slot] || entry.meal_slot}</small>
+                        {entry.title}
+                      </span>
+                    ))
+                  ) : (
+                    <em>frei</em>
+                  )}
+                </div>
+              </Link>
+            );
+          })}
+        </div>
       </section>
 
       <section className="toolbar" aria-label="Rezepte filtern">
