@@ -79,6 +79,10 @@ export const api = {
       method: 'DELETE'
     }),
   getMealPlan: (start, days = 7) => request(`/api/meal-plan?start=${start}&days=${days}`),
+  getTodayMealPlan: (date) => {
+    const query = date ? `?date=${encodeURIComponent(date)}` : '';
+    return request(`/api/meal-plan/today${query}`);
+  },
   saveMealPlanEntry: (payload) =>
     request('/api/meal-plan', {
       method: 'PUT',

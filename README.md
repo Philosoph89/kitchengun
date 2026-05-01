@@ -39,11 +39,16 @@ Der Ordner `kitchengun/` ist das Add-on. Wenn dieses Repository in Home Assistan
 
 Persistente Daten liegen im Add-on unter `/data/kitchengun.sqlite`.
 
+### Dashboard-Kachel
+
+Für Home-Assistant-Dashboards gibt es eine kompakte Tagesansicht unter `#/today-card`. Öffne die KitchenGun-Weboberfläche einmal über Home Assistant, kopiere die Ingress-URL aus dem Browser und hänge `#/today-card` an. Diese URL kann in einer Home-Assistant-Webpage-Karte verwendet werden.
+
 ## Features
 
 - Rezepte anlegen, bearbeiten, importieren und als Favorit markieren
 - Zutaten automatisch auf Portionen skalieren
 - Kochmodus mit Schritt-Checkliste und lokal gespeichertem Fortschritt
 - Wochenplan mit Frühstück, Mittag, Abendessen und Snack
+- Kompakte Home-Assistant-Dashboard-Kachel für den heutigen Essensplan
 - Zutaten einzelner geplanter Mahlzeiten oder einer ganzen Woche auf die Einkaufsliste übernehmen
 - Einkaufsliste mit Mengenaggregation und Fortschrittsanzeige

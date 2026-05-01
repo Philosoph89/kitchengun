@@ -7,6 +7,7 @@ KitchenGun läuft als Home-Assistant-Add-on über Ingress. Das Add-on baut das R
 - Rezeptbuch mit Chefkoch-Import und Favoriten
 - Kochmodus mit Schritt-Checkliste
 - Wochenplan mit Frühstück, Mittag, Abendessen und Snack
+- Kompakte Dashboard-Kachel für den heutigen Essensplan
 - Zutaten aus geplanten Mahlzeiten direkt auf die Einkaufsliste übernehmen
 - Einkaufsliste mit Mengenaggregation
 
@@ -16,6 +17,10 @@ KitchenGun läuft als Home-Assistant-Add-on über Ingress. Das Add-on baut das R
 2. Add-on `KitchenGun` installieren.
 3. Add-on starten.
 4. KitchenGun über die Seitenleiste öffnen.
+
+## Dashboard-Kachel
+
+KitchenGun stellt unter `#/today-card` eine reduzierte Ansicht für Home-Assistant-Dashboards bereit. Öffne die KitchenGun-Weboberfläche über Home Assistant, kopiere die Ingress-URL aus dem Browser und hänge `#/today-card` an. Diese URL kannst du in einer Webpage-Karte auf dem Dashboard anzeigen.
 
 ## Daten
 

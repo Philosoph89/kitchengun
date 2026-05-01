@@ -232,7 +232,7 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
     app: 'KitchenGun',
-    version: process.env.APP_VERSION || process.env.npm_package_version || '1.3.0'
+    version: process.env.APP_VERSION || process.env.npm_package_version || '1.4.0'
   });
 });
 
@@ -443,6 +443,31 @@ app.get(
     );
 
     res.json(rows);
+  })
+);
+
+app.get(
+  '/api/meal-plan/today',
+  asyncHandler(async (req, res) => {
+    const planDate = normalizeDate(req.query.date || new Date().toISOString().slice(0, 10));
+
+    const rows = await dbAll(
+      `SELECT mp.id, mp.plan_date, mp.meal_slot, mp.recipe_id, mp.portions, mp.notes,
+              r.title, r.image, r.category,
+              COALESCE(r.prep_time, 0) + COALESCE(r.cook_time, 0) AS total_time
+       FROM meal_plan mp
+       LEFT JOIN recipes r ON r.id = mp.recipe_id
+       WHERE mp.plan_date = ?
+       ORDER BY CASE mp.meal_slot
+                  WHEN 'breakfast' THEN 1
+                  WHEN 'lunch' THEN 2
+                  WHEN 'dinner' THEN 3
+                  ELSE 4
+                END ASC`,
+      [planDate]
+    );
+
+    res.json({ date: planDate, meals: rows });
   })
 );
 

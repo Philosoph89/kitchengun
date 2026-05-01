@@ -1,26 +1,54 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Download, Clock, Star, Eye, Users } from 'lucide-react';
 import Modal from '../components/Modal';
 import { api } from '../lib/api';
 
+const SEARCH_CACHE_KEY = 'kitchengun:chefkoch-search';
+
+function readCachedSearch() {
+  if (typeof window === 'undefined') return { query: '', results: [] };
+
+  try {
+    const cached = window.sessionStorage.getItem(SEARCH_CACHE_KEY);
+    if (!cached) return { query: '', results: [] };
+
+    const parsed = JSON.parse(cached);
+    return {
+      query: typeof parsed.query === 'string' ? parsed.query : '',
+      results: Array.isArray(parsed.results) ? parsed.results : []
+    };
+  } catch {
+    return { query: '', results: [] };
+  }
+}
+
 export default function ChefkochSearch() {
   const navigate = useNavigate();
-  const [query, setQuery] = useState('');
-  const [results, setResults] = useState([]);
+  const [query, setQuery] = useState(() => readCachedSearch().query);
+  const [results, setResults] = useState(() => readCachedSearch().results);
   const [loading, setLoading] = useState(false);
   const [importingId, setImportingId] = useState(null);
   const [previewLoadingId, setPreviewLoadingId] = useState(null);
   const [previewRecipe, setPreviewRecipe] = useState(null);
   const [modalState, setModalState] = useState({ isOpen: false, title: '', message: '' });
 
+  useEffect(() => {
+    try {
+      window.sessionStorage.setItem(SEARCH_CACHE_KEY, JSON.stringify({ query, results }));
+    } catch {
+      // Session persistence is a comfort feature; searching must still work without it.
+    }
+  }, [query, results]);
+
   const handleSearch = async (e) => {
     e.preventDefault();
-    if (!query) return;
+    const searchQuery = query.trim();
+    if (!searchQuery) return;
     
     setLoading(true);
     try {
-      setResults(await api.searchChefkoch(query));
+      setResults(await api.searchChefkoch(searchQuery));
     } catch (err) {
       console.error(err);
       setModalState({ isOpen: true, title: 'Fehler', message: err.message });
@@ -173,7 +201,7 @@ export default function ChefkochSearch() {
             <section>
               <h3>Zutaten</h3>
               <ul className="preview-ingredients">
-                {previewRecipe.ingredients.slice(0, 12).map((ingredient, index) => (
+                {previewRecipe.ingredients.map((ingredient, index) => (
                   <li key={`${ingredient.name}-${index}`}>
                     <span>{ingredient.name}</span>
                     <strong>
