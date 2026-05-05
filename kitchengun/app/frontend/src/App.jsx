@@ -8,14 +8,38 @@ import ChefkochSearch from './pages/ChefkochSearch';
 import MealPlanner from './pages/MealPlanner';
 import TodayCard from './pages/TodayCard';
 
+function isTodayCardRequest(location) {
+  const searchParams =
+    typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
+  const hash = typeof window !== 'undefined' ? window.location.hash : '';
+
+  return (
+    location.pathname === '/today-card' ||
+    hash === '#/today-card' ||
+    hash.startsWith('#/today-card?') ||
+    searchParams.get('view') === 'today-card' ||
+    searchParams.get('card') === 'today'
+  );
+}
+
 function App() {
   const location = useLocation();
-  const isDashboardCard = location.pathname === '/today-card';
+  const isDashboardCard = isTodayCardRequest(location);
+
+  if (isDashboardCard) {
+    return (
+      <div className="app-container dashboard-card-app">
+        <main className="dashboard-card-content animate-fade-in">
+          <TodayCard />
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="app-container">
-      {!isDashboardCard && <Navbar />}
-      <main className={isDashboardCard ? 'dashboard-card-content animate-fade-in' : 'main-content animate-fade-in'}>
+      <Navbar />
+      <main className="main-content animate-fade-in">
         <Routes>
           <Route path="/" element={<RecipeBook />} />
           <Route path="/discover" element={<ChefkochSearch />} />
