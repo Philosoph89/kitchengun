@@ -232,8 +232,229 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
     app: 'KitchenGun',
-    version: process.env.APP_VERSION || process.env.npm_package_version || '1.4.1'
+    version: process.env.APP_VERSION || process.env.npm_package_version || '1.4.2'
   });
+});
+
+function todayCardHtml() {
+  return `<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>KitchenGun Heute</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg-surface: #ffffff;
+        --bg-subtle: #eef2ea;
+        --text-primary: #172026;
+        --text-secondary: #5b6770;
+        --accent-primary: #178a55;
+        --accent-warm: #c27803;
+        --accent-danger: #dc2626;
+        --border-color: #d9dfd4;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg-surface: #181f24;
+          --bg-subtle: #222b31;
+          --text-primary: #f3f6f8;
+          --text-secondary: #bdc6cc;
+          --border-color: #2f3a42;
+        }
+      }
+
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        min-height: 100vh;
+        background: transparent;
+        color: var(--text-primary);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        line-height: 1.45;
+      }
+      .card {
+        min-height: 100vh;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        background: var(--bg-surface);
+        padding: 16px;
+      }
+      .head {
+        display: flex;
+        justify-content: space-between;
+        gap: 14px;
+        margin-bottom: 14px;
+      }
+      .head span {
+        display: block;
+        color: var(--accent-warm);
+        font-size: 0.74rem;
+        font-weight: 850;
+        text-transform: uppercase;
+      }
+      .head strong {
+        display: block;
+        font-size: 1.15rem;
+        line-height: 1.15;
+      }
+      .hero {
+        display: grid;
+        grid-template-columns: 82px 1fr;
+        gap: 12px;
+        align-items: center;
+        border: 1px solid color-mix(in srgb, var(--accent-primary) 24%, var(--border-color));
+        border-radius: 8px;
+        background: color-mix(in srgb, var(--accent-primary) 9%, var(--bg-surface));
+        padding: 10px;
+      }
+      .visual {
+        width: 82px;
+        aspect-ratio: 1;
+        border-radius: 6px;
+        display: grid;
+        place-items: center;
+        background: var(--bg-subtle);
+        color: var(--accent-primary);
+        overflow: hidden;
+        font-size: 1.7rem;
+      }
+      .visual img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      small, .meta {
+        display: block;
+        color: var(--text-secondary);
+        font-size: 0.82rem;
+        font-weight: 750;
+      }
+      h1 {
+        margin: 2px 0 6px;
+        font-size: 1.18rem;
+        line-height: 1.15;
+      }
+      .meals {
+        display: grid;
+        gap: 8px;
+        margin-top: 12px;
+      }
+      .meal {
+        display: grid;
+        grid-template-columns: 76px 1fr;
+        gap: 8px;
+        align-items: center;
+        min-height: 42px;
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        background: var(--bg-subtle);
+        padding: 8px 10px;
+      }
+      .meal span {
+        color: var(--text-secondary);
+        font-size: 0.78rem;
+        font-weight: 800;
+      }
+      .meal strong {
+        font-size: 0.95rem;
+        line-height: 1.2;
+      }
+      .empty {
+        display: grid;
+        place-items: center;
+        gap: 6px;
+        min-height: 160px;
+        border: 1px dashed var(--border-color);
+        border-radius: 8px;
+        background: var(--bg-subtle);
+        color: var(--text-secondary);
+        text-align: center;
+        padding: 20px;
+      }
+      .error { color: var(--accent-danger); }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <div class="head">
+        <div>
+          <span>Heute</span>
+          <strong id="date">Essensplan</strong>
+        </div>
+        <div aria-hidden="true">KG</div>
+      </div>
+      <section id="content" class="empty">Essensplan wird geladen.</section>
+    </main>
+    <script>
+      const labels = { breakfast: 'Frühstück', lunch: 'Mittag', dinner: 'Abend', snack: 'Snack' };
+      const today = new Date();
+      const localToday = new Date(today.getTime() - today.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+      document.getElementById('date').textContent = new Intl.DateTimeFormat('de-DE', {
+        weekday: 'long',
+        day: '2-digit',
+        month: 'long'
+      }).format(today);
+
+      function escapeHtml(value) {
+        return String(value ?? '').replace(/[&<>"']/g, (char) => ({
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#39;'
+        }[char]));
+      }
+
+      async function load() {
+        const content = document.getElementById('content');
+        try {
+          const response = await fetch(new URL('./api/meal-plan/today?date=' + localToday, window.location.href));
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || 'Essensplan konnte nicht geladen werden.');
+
+          const meals = (data.meals || []).filter((meal) => meal.recipe_id);
+          if (!meals.length) {
+            content.className = 'empty';
+            content.innerHTML = '<strong>Noch nichts geplant</strong><span>Der heutige Essensplan ist leer.</span>';
+            return;
+          }
+
+          const hero = meals.find((meal) => meal.meal_slot === 'dinner') || meals[0];
+          content.className = '';
+          content.innerHTML = \`
+            <section class="hero">
+              <div class="visual">\${hero.image ? '<img src="' + escapeHtml(hero.image) + '" alt="">' : 'KG'}</div>
+              <div>
+                <small>\${escapeHtml(labels[hero.meal_slot] || hero.meal_slot)}</small>
+                <h1>\${escapeHtml(hero.title)}</h1>
+                <span class="meta">\${hero.total_time ? escapeHtml(hero.total_time) + ' Min' : escapeHtml(hero.portions || 2) + ' Portionen'}</span>
+              </div>
+            </section>
+            <section class="meals">
+              \${meals.map((meal) => \`
+                <div class="meal">
+                  <span>\${escapeHtml(labels[meal.meal_slot] || meal.meal_slot)}</span>
+                  <strong>\${escapeHtml(meal.title)}</strong>
+                </div>
+              \`).join('')}
+            </section>
+          \`;
+        } catch (err) {
+          content.className = 'empty error';
+          content.textContent = err.message || 'Essensplan konnte nicht geladen werden.';
+        }
+      }
+
+      load();
+    </script>
+  </body>
+</html>`;
+}
+
+app.get(['/today-card', '/today-card/'], (req, res) => {
+  res.type('html').send(todayCardHtml());
 });
 
 app.get(

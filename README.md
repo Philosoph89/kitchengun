@@ -41,7 +41,7 @@ Persistente Daten liegen im Add-on unter `/data/kitchengun.sqlite`.
 
 ### Dashboard-Kachel
 
-Für Home-Assistant-Dashboards gibt es eine kompakte Tagesansicht über `?view=today-card`. Öffne die KitchenGun-Weboberfläche einmal über Home Assistant, kopiere die Ingress-URL aus dem Browser und hänge `?view=today-card` an. Diese URL kann in einer Home-Assistant-Webpage-Karte verwendet werden.
+Für Home-Assistant-Dashboards gibt es eine kompakte Tagesansicht unter `/today-card`. Verwende in einer Home-Assistant-Webpage-Karte die Add-on-URL mit diesem Pfad, zum Beispiel `/74b42f4f_kitchengun/today-card`.
 
 ## Features
 

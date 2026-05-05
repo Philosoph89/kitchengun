@@ -20,7 +20,7 @@ KitchenGun läuft als Home-Assistant-Add-on über Ingress. Das Add-on baut das R
 
 ## Dashboard-Kachel
 
-KitchenGun stellt über `?view=today-card` eine reduzierte Ansicht für Home-Assistant-Dashboards bereit. Öffne die KitchenGun-Weboberfläche über Home Assistant, kopiere die Ingress-URL aus dem Browser und hänge `?view=today-card` an. Diese URL kannst du in einer Webpage-Karte auf dem Dashboard anzeigen.
+KitchenGun stellt unter `/today-card` eine reduzierte Ansicht für Home-Assistant-Dashboards bereit. Verwende in einer Home-Assistant-Webpage-Karte die Add-on-URL mit diesem Pfad, zum Beispiel `/74b42f4f_kitchengun/today-card`.
 
 ## Daten
 

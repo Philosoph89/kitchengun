@@ -12,9 +12,12 @@ function isTodayCardRequest(location) {
   const searchParams =
     typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
   const hash = typeof window !== 'undefined' ? window.location.hash : '';
+  const browserPath = typeof window !== 'undefined' ? window.location.pathname : '';
 
   return (
     location.pathname === '/today-card' ||
+    browserPath.endsWith('/today-card') ||
+    browserPath.endsWith('/today-card/') ||
     hash === '#/today-card' ||
     hash.startsWith('#/today-card?') ||
     searchParams.get('view') === 'today-card' ||
