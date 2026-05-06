@@ -1,5 +1,5 @@
 name: KitchenGun
-version: "1.4.2"
+version: "1.4.3"
 slug: kitchengun
 description: Rezeptbuch, Wochenplaner, Chefkoch-Import und Einkaufsliste für Home Assistant.
 url: https://github.com/Philosoph89/kitchengun
