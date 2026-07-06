@@ -8,6 +8,7 @@ const app = express();
 const PORT = process.env.PORT || 5001;
 const STATIC_DIR = process.env.STATIC_DIR || path.resolve(__dirname, '../frontend/dist');
 const INGRESS_ONLY = process.env.INGRESS_ONLY === 'true';
+const PUBLIC_CARD_PATHS = new Set(['/today-card', '/api/meal-plan/today']);
 
 app.use(cors());
 app.use(express.json({ limit: '2mb' }));
@@ -15,6 +16,10 @@ app.set('trust proxy', true);
 
 app.use((req, res, next) => {
   if (!INGRESS_ONLY) return next();
+  const requestPath = req.path.replace(/\/+$/, '') || '/';
+  if ((req.method === 'GET' || req.method === 'HEAD') && PUBLIC_CARD_PATHS.has(requestPath)) {
+    return next();
+  }
 
   const remoteAddress = req.socket.remoteAddress || '';
   const forwardedHost = req.get('x-forwarded-host') || '';
@@ -232,7 +237,7 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
     app: 'KitchenGun',
-    version: process.env.APP_VERSION || process.env.npm_package_version || '1.4.2'
+    version: process.env.APP_VERSION || process.env.npm_package_version || '1.4.4'
   });
 });
 

@@ -20,7 +20,11 @@ KitchenGun läuft als Home-Assistant-Add-on über Ingress. Das Add-on baut das R
 
 ## Dashboard-Kachel
 
-KitchenGun stellt unter `/today-card` eine reduzierte Ansicht für Home-Assistant-Dashboards bereit. Verwende in einer Home-Assistant-Webpage-Karte die Add-on-URL mit diesem Pfad, zum Beispiel `/74b42f4f_kitchengun/today-card`.
+KitchenGun stellt unter `/today-card` eine reduzierte Ansicht für Home-Assistant-Dashboards bereit.
+
+Home-Assistant-Ingress initialisiert den statischen Add-on-Pfad erst, wenn die App einmal über die Seitenleiste geöffnet wurde. Für eine Dashboard-Karte, die sofort nach dem Laden der Übersicht funktioniert, aktiviere in der Add-on-Konfiguration unter Netzwerk optional den Port `8099/tcp` und verwende in der Webpage-Karte `http://<home-assistant-host>:8099/today-card`.
+
+Der Direktzugang erlaubt nur die Lese-Endpunkte der Tageskarte (`/today-card` und `/api/meal-plan/today`). Die normale App und alle Schreib-APIs bleiben hinter Ingress.
 
 ## Daten
 

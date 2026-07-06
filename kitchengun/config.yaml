@@ -1,5 +1,5 @@
 name: KitchenGun
-version: "1.4.3"
+version: "1.4.4"
 slug: kitchengun
 description: Rezeptbuch, Wochenplaner, Chefkoch-Import und Einkaufsliste für Home Assistant.
 url: https://github.com/Philosoph89/kitchengun
@@ -14,6 +14,10 @@ boot: auto
 init: false
 ingress: true
 ingress_port: 8099
+ports:
+  8099/tcp: null
+ports_description:
+  8099/tcp: Optionaler Direktzugang fuer die Dashboard-Kachel
 panel_icon: mdi:chef-hat
 panel_title: KitchenGun
 homeassistant_api: false
