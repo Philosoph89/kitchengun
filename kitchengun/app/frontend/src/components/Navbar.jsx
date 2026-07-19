@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { CalendarDays, Search, ShoppingCart, Utensils } from 'lucide-react';
+import { CalendarDays, Package, Search, ShoppingCart, Utensils } from 'lucide-react';
 
 export default function Navbar() {
   return (
@@ -21,6 +21,10 @@ export default function Navbar() {
         <NavLink to="/planner" className={({isActive}) => isActive ? "nav-link active" : "nav-link"}>
           <CalendarDays size={20} />
           <span>Planer</span>
+        </NavLink>
+        <NavLink to="/inventory" className={({isActive}) => isActive ? "nav-link active" : "nav-link"}>
+          <Package size={20} />
+          <span>Vorrat</span>
         </NavLink>
         <NavLink to="/shopping-list" className={({isActive}) => isActive ? "nav-link active" : "nav-link"}>
           <ShoppingCart size={20} />

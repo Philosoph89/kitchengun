@@ -7,6 +7,7 @@ import RecipeForm from './pages/RecipeForm';
 import ChefkochSearch from './pages/ChefkochSearch';
 import MealPlanner from './pages/MealPlanner';
 import TodayCard from './pages/TodayCard';
+import Inventory from './pages/Inventory';
 
 function isTodayCardRequest(location) {
   const searchParams =
@@ -52,6 +53,7 @@ function App() {
           <Route path="/recipe/edit/:id" element={<RecipeForm />} />
           <Route path="/recipe/:id" element={<RecipeDetail />} />
           <Route path="/shopping-list" element={<ShoppingList />} />
+          <Route path="/inventory" element={<Inventory />} />
         </Routes>
       </main>
     </div>

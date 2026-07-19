@@ -5,6 +5,9 @@ KitchenGun läuft als Home-Assistant-Add-on über Ingress. Das Add-on baut das R
 ## Funktionen
 
 - Rezeptbuch mit Chefkoch-Import und Favoriten
+- Vorratsverwaltung mit manueller Erfassung und Barcode-Scanner
+- Automatische Produktdaten über Open Food Facts
+- Rezeptfilter nach vorhandenen Zutaten und optionaler Bestandsabbau nach dem Kochen
 - Kochmodus mit Schritt-Checkliste
 - Wochenplan mit Frühstück, Mittag, Abendessen und Snack
 - Kompakte Dashboard-Kachel für den heutigen Essensplan

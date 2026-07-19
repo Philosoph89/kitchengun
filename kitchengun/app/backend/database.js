@@ -60,6 +60,37 @@ const db = new sqlite3.Database(dbPath, (err) => {
         FOREIGN KEY (recipe_id) REFERENCES recipes (id)
       )`);
 
+      db.run(`CREATE TABLE IF NOT EXISTS inventory_items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        quantity REAL NOT NULL DEFAULT 0,
+        unit TEXT,
+        barcode TEXT,
+        image TEXT,
+        brand TEXT,
+        category TEXT,
+        minimum_quantity REAL DEFAULT 0,
+        expires_at TEXT,
+        notes TEXT,
+        source TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+      )`);
+
+      db.run(`CREATE UNIQUE INDEX IF NOT EXISTS inventory_barcode_unique
+              ON inventory_items(barcode) WHERE barcode IS NOT NULL AND TRIM(barcode) != ''`);
+
+      db.run(`CREATE TABLE IF NOT EXISTS inventory_movements (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        inventory_item_id INTEGER,
+        recipe_id INTEGER,
+        change_amount REAL NOT NULL,
+        reason TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (inventory_item_id) REFERENCES inventory_items (id),
+        FOREIGN KEY (recipe_id) REFERENCES recipes (id)
+      )`);
+
       const recipeColumns = [
         ['source', 'TEXT'],
         ['source_id', 'TEXT'],

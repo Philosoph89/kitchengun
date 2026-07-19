@@ -54,6 +54,42 @@ export const api = {
     request(`/api/recipes/${id}`, {
       method: 'DELETE'
     }),
+  getRecipeInventoryUsage: (id, portions) =>
+    request(`/api/recipes/${id}/inventory-usage?portions=${encodeURIComponent(portions)}`),
+  consumeRecipeInventory: (id, portions, deduct) =>
+    request(`/api/recipes/${id}/consume-inventory`, {
+      method: 'POST',
+      body: JSON.stringify({ portions, deduct })
+    }),
+  getInventory: (params = {}) => {
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value) searchParams.set(key, value);
+    });
+    const query = searchParams.toString();
+    return request(`/api/inventory${query ? `?${query}` : ''}`);
+  },
+  getInventorySummary: () => request('/api/inventory/summary'),
+  lookupProduct: (barcode) => request(`/api/products/${encodeURIComponent(barcode)}`),
+  addInventoryItem: (payload) =>
+    request('/api/inventory', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    }),
+  updateInventoryItem: (id, payload) =>
+    request(`/api/inventory/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload)
+    }),
+  changeInventoryQuantity: (id, payload) =>
+    request(`/api/inventory/${id}/quantity`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload)
+    }),
+  deleteInventoryItem: (id) =>
+    request(`/api/inventory/${id}`, {
+      method: 'DELETE'
+    }),
   getShoppingList: () => request('/api/shopping-list'),
   addShoppingItem: (payload) =>
     request('/api/shopping-list', {

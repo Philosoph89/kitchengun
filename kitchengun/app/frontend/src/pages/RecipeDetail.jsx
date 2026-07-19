@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Check, ChefHat, Clock, Edit3, Heart, Minus, Plus, RotateCcw, ShoppingCart, Trash2, Users } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Check, ChefHat, Clock, Edit3, Heart, Minus, PackageCheck, Plus, RotateCcw, ShoppingCart, Trash2, Users } from 'lucide-react';
 import Modal from '../components/Modal';
 import { api } from '../lib/api';
 
@@ -35,6 +35,10 @@ export default function RecipeDetail() {
   const [checkedSteps, setCheckedSteps] = useState([]);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
+  const [inventoryUsage, setInventoryUsage] = useState(null);
+  const [deductInventory, setDeductInventory] = useState(true);
+  const [consuming, setConsuming] = useState(false);
+  const [consumptionNotice, setConsumptionNotice] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -134,6 +138,34 @@ export default function RecipeDetail() {
     setCheckedSteps(Array.from({ length: steps.length }, () => false));
   };
 
+  const openConsumeDialog = async () => {
+    setConsuming(true);
+    setError('');
+    try {
+      setInventoryUsage(await api.getRecipeInventoryUsage(id, portions));
+      setDeductInventory(true);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setConsuming(false);
+    }
+  };
+
+  const confirmConsumption = async () => {
+    setConsuming(true);
+    setError('');
+    try {
+      const result = await api.consumeRecipeInventory(id, portions, deductInventory);
+      setInventoryUsage(null);
+      setConsumptionNotice(result.message);
+      setCheckedSteps(Array.from({ length: steps.length }, () => false));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setConsuming(false);
+    }
+  };
+
   if (loading) return <div className="empty-state">Rezept wird geladen.</div>;
   if (error && !recipe) return <div className="notice notice-error">{error}</div>;
 
@@ -145,6 +177,7 @@ export default function RecipeDetail() {
       </button>
 
       {error && <div className="notice notice-error">{error}</div>}
+      {consumptionNotice && <div className="notice notice-success"><Check size={18} /> {consumptionNotice}</div>}
 
       <article className="recipe-detail">
         {recipe.image && <img src={recipe.image} alt={recipe.title} className="recipe-hero-image" />}
@@ -221,6 +254,10 @@ export default function RecipeDetail() {
                 <ShoppingCart size={18} />
                 {addingToList ? 'Wird hinzugefügt' : 'Auf die Einkaufsliste'}
               </button>
+              <button className="btn btn-secondary full-width consume-button" onClick={openConsumeDialog} disabled={consuming}>
+                <PackageCheck size={18} />
+                {consuming ? 'Vorrat wird geprüft…' : 'Als gekocht markieren'}
+              </button>
             </aside>
 
             <section className="instructions-panel">
@@ -292,6 +329,55 @@ export default function RecipeDetail() {
         }
       >
         <p>Die Zutaten wurden hinzugefügt und gleiche Artikel automatisch zusammengeführt.</p>
+      </Modal>
+
+      <Modal
+        isOpen={Boolean(inventoryUsage)}
+        onClose={() => setInventoryUsage(null)}
+        title="Kochen abschließen"
+        actions={
+          <>
+            <button className="btn btn-secondary" onClick={() => setInventoryUsage(null)}>Abbrechen</button>
+            <button className="btn btn-primary" onClick={confirmConsumption} disabled={consuming}>
+              <Check size={18} /> {consuming ? 'Wird verbucht…' : 'Bestätigen'}
+            </button>
+          </>
+        }
+      >
+        {inventoryUsage && (
+          <div className="consume-dialog">
+            <div className={`consume-summary ${inventoryUsage.can_cook ? 'complete' : 'warning'}`}>
+              {inventoryUsage.can_cook ? <PackageCheck size={22} /> : <AlertTriangle size={22} />}
+              <div>
+                <strong>{inventoryUsage.available} von {inventoryUsage.total} Zutaten im Vorrat</strong>
+                <span>Berechnet für {inventoryUsage.portions} Portionen</span>
+              </div>
+            </div>
+            <div className="consume-list">
+              {inventoryUsage.ingredients.map((ingredient) => (
+                <div className={`consume-item ${ingredient.status}`} key={ingredient.ingredient_id}>
+                  <span className="consume-status">{ingredient.status === 'available' ? <Check size={15} /> : <AlertTriangle size={15} />}</span>
+                  <span>
+                    <strong>{ingredient.name}</strong>
+                    <small>
+                      {ingredient.inventory_name
+                        ? `Vorrat: ${ingredient.inventory_name} · ${ingredient.inventory_quantity} ${ingredient.inventory_unit}`
+                        : 'Nicht eindeutig im Vorrat gefunden'}
+                    </small>
+                  </span>
+                  <b>{ingredient.required_amount ? `${Number(ingredient.required_amount).toLocaleString('de-DE', { maximumFractionDigits: 2 })} ${ingredient.required_unit}` : 'nach Bedarf'}</b>
+                </div>
+              ))}
+            </div>
+            <label className="consume-toggle">
+              <input type="checkbox" checked={deductInventory} onChange={(event) => setDeductInventory(event.target.checked)} />
+              <span>
+                <strong>Bestand automatisch reduzieren</strong>
+                <small>Nur eindeutig zugeordnete und umrechenbare Mengen werden abgezogen.</small>
+              </span>
+            </label>
+          </div>
+        )}
       </Modal>
     </div>
   );

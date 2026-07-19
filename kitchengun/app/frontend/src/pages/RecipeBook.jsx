@@ -9,6 +9,8 @@ import {
   Clock,
   Heart,
   ListChecks,
+  Package,
+  PackageCheck,
   Plus,
   Search,
   ShoppingCart,
@@ -62,6 +64,7 @@ export default function RecipeBook() {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('Alle');
   const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [inventoryOnly, setInventoryOnly] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -73,7 +76,12 @@ export default function RecipeBook() {
       setError('');
       try {
         const [recipeData, statsData, planData, shoppingData] = await Promise.all([
-          api.getRecipes({ search, category: category === 'Alle' ? '' : category, favorite: favoritesOnly ? '1' : '' }),
+          api.getRecipes({
+            search,
+            category: category === 'Alle' ? '' : category,
+            favorite: favoritesOnly ? '1' : '',
+            inventory: inventoryOnly ? 'available' : 'status'
+          }),
           api.getStats(),
           api.getMealPlan(toIsoDate(startOfWeek()), 7),
           api.getShoppingList()
@@ -97,7 +105,7 @@ export default function RecipeBook() {
       cancelled = true;
       window.clearTimeout(timeout);
     };
-  }, [search, category, favoritesOnly]);
+  }, [search, category, favoritesOnly, inventoryOnly]);
 
   const categories = useMemo(() => {
     const fromStats = stats?.categories?.map((item) => item.category).filter(Boolean) || [];
@@ -145,6 +153,12 @@ export default function RecipeBook() {
       icon: CalendarDays,
       label: 'Woche planen',
       text: 'Mahlzeiten pro Tag und Slot organisieren.'
+    },
+    {
+      to: '/inventory',
+      icon: Package,
+      label: 'Vorrat pflegen',
+      text: 'Lebensmittel scannen und Bestände aktuell halten.'
     },
     {
       to: '/shopping-list',
@@ -248,6 +262,13 @@ export default function RecipeBook() {
           <div>
             <strong>{stats?.categories?.length ?? 0}</strong>
             <span>Kategorien</span>
+          </div>
+        </div>
+        <div className="metric">
+          <Package size={20} />
+          <div>
+            <strong>{stats?.inventoryItems ?? 0}</strong>
+            <span>im Vorrat</span>
           </div>
         </div>
         <div className="metric">
@@ -425,6 +446,10 @@ export default function RecipeBook() {
           />
         </div>
         <div className="segmented-control">
+          <button type="button" className={inventoryOnly ? 'active inventory-filter' : ''} onClick={() => setInventoryOnly((value) => !value)}>
+            <PackageCheck size={16} />
+            Nur aus Vorrat
+          </button>
           <button type="button" className={favoritesOnly ? 'active' : ''} onClick={() => setFavoritesOnly((value) => !value)}>
             Favoriten
           </button>
@@ -448,12 +473,20 @@ export default function RecipeBook() {
       ) : recipes.length === 0 ? (
         <div className="empty-state">
           <h2>Keine passenden Rezepte</h2>
-          <p>Lege ein neues Rezept an oder importiere eins über Entdecken.</p>
+          <p>{inventoryOnly ? 'Für diese Auswahl fehlen noch Zutaten im Vorrat.' : 'Lege ein neues Rezept an oder importiere eins über Entdecken.'}</p>
           <div className="empty-actions">
+            {inventoryOnly && (
+              <Link to="/inventory" className="btn btn-primary">
+                <Package size={18} />
+                Vorrat ergänzen
+              </Link>
+            )}
+            {!inventoryOnly && (
             <Link to="/recipe/new" className="btn btn-primary">
               <Plus size={18} />
               Rezept anlegen
             </Link>
+            )}
             <Link to="/discover" className="btn btn-secondary">
               <Search size={18} />
               Entdecken
@@ -476,6 +509,14 @@ export default function RecipeBook() {
                 <div className="recipe-content">
                   <div className="recipe-card-topline">
                     <div className="tag">{recipe.category || 'Allgemein'}</div>
+                    {recipe.inventory_availability?.total > 0 && (
+                      <span className={`inventory-match ${recipe.inventory_availability.can_cook ? 'complete' : ''}`}>
+                        <PackageCheck size={14} />
+                        {recipe.inventory_availability.can_cook
+                          ? 'Alles da'
+                          : `${recipe.inventory_availability.available}/${recipe.inventory_availability.total} da`}
+                      </span>
+                    )}
                   </div>
                   <h2>{recipe.title}</h2>
                   <div className="recipe-meta">
