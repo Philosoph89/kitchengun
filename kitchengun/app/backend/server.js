@@ -15,6 +15,11 @@ app.use(express.json({ limit: '2mb' }));
 app.set('trust proxy', true);
 
 app.use((req, res, next) => {
+  res.set('Permissions-Policy', 'camera=(self)');
+  next();
+});
+
+app.use((req, res, next) => {
   if (!INGRESS_ONLY) return next();
   const requestPath = req.path.replace(/\/+$/, '') || '/';
   if ((req.method === 'GET' || req.method === 'HEAD') && PUBLIC_CARD_PATHS.has(requestPath)) {
@@ -421,7 +426,7 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
     app: 'KitchenGun',
-    version: process.env.APP_VERSION || process.env.npm_package_version || '1.5.0'
+    version: process.env.APP_VERSION || process.env.npm_package_version || '1.5.1'
   });
 });
 

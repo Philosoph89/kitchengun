@@ -1,5 +1,5 @@
 name: KitchenGun
-version: "1.5.0"
+version: "1.5.1"
 slug: kitchengun
 description: Rezeptbuch, Vorratsverwaltung mit Barcode-Scanner, Wochenplaner und Einkaufsliste für Home Assistant.
 url: https://github.com/Philosoph89/kitchengun

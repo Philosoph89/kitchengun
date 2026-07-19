@@ -27,7 +27,7 @@ COPY run.sh /run.sh
 RUN chmod a+x /run.sh
 
 ENV NODE_ENV=production \
-    APP_VERSION=1.5.0 \
+    APP_VERSION=1.5.1 \
     PORT=8099 \
     STATIC_DIR=/app/frontend/dist \
     DB_PATH=/data/kitchengun.sqlite \

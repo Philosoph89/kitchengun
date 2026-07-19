@@ -49,12 +49,39 @@ function quantityStep(unit) {
   return 1;
 }
 
+function getCameraErrorMessage(error) {
+  const policy = document.permissionsPolicy || document.featurePolicy;
+  const isEmbedded = window.self !== window.top;
+
+  if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+    return 'Die Live-Kamera ist über eine unverschlüsselte HTTP-Verbindung gesperrt. Nutze „Foto aufnehmen“ oder öffne KitchenGun über HTTPS.';
+  }
+  if (policy?.allowsFeature && !policy.allowsFeature('camera')) {
+    return 'Home Assistant gibt die Live-Kamera in diesem Add-on-Fenster nicht frei. „Foto aufnehmen“ funktioniert trotzdem.';
+  }
+  if (error?.name === 'NotAllowedError' || error?.name === 'SecurityError') {
+    return isEmbedded
+      ? 'Home Assistant oder der Browser blockiert die Live-Kamera in diesem Fenster. Nutze „Foto aufnehmen“ oder öffne den Scanner in einem neuen Fenster.'
+      : 'Der Kamerazugriff wurde nicht erlaubt. Erlaube die Kamera in den Browser-Einstellungen oder nutze „Foto aufnehmen“.';
+  }
+  if (error?.name === 'NotFoundError' || error?.name === 'DevicesNotFoundError') {
+    return 'Es wurde keine Kamera gefunden. Du kannst stattdessen ein vorhandenes Foto auswählen.';
+  }
+  if (error?.name === 'NotReadableError' || error?.name === 'TrackStartError') {
+    return 'Die Kamera wird bereits von einer anderen App verwendet. Schließe diese App oder nutze „Foto aufnehmen“.';
+  }
+  return 'Die Live-Kamera konnte nicht gestartet werden. Nutze „Foto aufnehmen“ – der Barcode wird direkt auf dem Gerät erkannt.';
+}
+
 function BarcodeScanner({ onClose, onDetected }) {
   const videoRef = useRef(null);
+  const fileInputRef = useRef(null);
   const controlsRef = useRef(null);
   const handledRef = useRef(false);
   const [manualCode, setManualCode] = useState('');
   const [cameraError, setCameraError] = useState('');
+  const [photoError, setPhotoError] = useState('');
+  const [photoLoading, setPhotoLoading] = useState(false);
 
   useEffect(() => {
     handledRef.current = false;
@@ -63,17 +90,29 @@ function BarcodeScanner({ onClose, onDetected }) {
     import('@zxing/browser')
       .then(({ BrowserMultiFormatReader }) => {
         if (cancelled) return null;
+        const policy = document.permissionsPolicy || document.featurePolicy;
+        if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+          const error = new Error('Camera requires a secure context.');
+          error.name = 'SecurityError';
+          throw error;
+        }
+        if (policy?.allowsFeature && !policy.allowsFeature('camera')) {
+          const error = new Error('Camera is blocked by Permissions Policy.');
+          error.name = 'NotAllowedError';
+          throw error;
+        }
         const reader = new BrowserMultiFormatReader();
         return reader.decodeFromConstraints(
-        { video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } } },
-        videoRef.current,
-        (result) => {
-          if (!cancelled && result && !handledRef.current) {
-            handledRef.current = true;
-            controlsRef.current?.stop();
-            onDetected(result.getText());
+          { audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } } },
+          videoRef.current,
+          (result) => {
+            if (!cancelled && result && !handledRef.current) {
+              handledRef.current = true;
+              controlsRef.current?.stop();
+              onDetected(result.getText());
+            }
           }
-        });
+        );
       })
       .then((controls) => {
         if (!controls) return;
@@ -82,11 +121,8 @@ function BarcodeScanner({ onClose, onDetected }) {
       })
       .catch((error) => {
         if (!cancelled) {
-          setCameraError(
-            error?.name === 'NotAllowedError'
-              ? 'Der Kamerazugriff wurde nicht erlaubt. Du kannst den Barcode unten eingeben.'
-              : 'Die Kamera konnte nicht gestartet werden. Nutze bitte die manuelle Eingabe.'
-          );
+          console.warn('KitchenGun camera unavailable:', error?.name, error?.message);
+          setCameraError(getCameraErrorMessage(error));
         }
       });
 
@@ -96,6 +132,33 @@ function BarcodeScanner({ onClose, onDetected }) {
       controlsRef.current = null;
     };
   }, [onDetected]);
+
+  const handlePhoto = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setPhotoLoading(true);
+    setPhotoError('');
+    const imageUrl = URL.createObjectURL(file);
+    try {
+      const image = new Image();
+      image.src = imageUrl;
+      await image.decode();
+      const { BrowserMultiFormatReader } = await import('@zxing/browser');
+      const result = await new BrowserMultiFormatReader().decodeFromImageElement(image);
+      onDetected(result.getText());
+    } catch {
+      setPhotoError('Auf dem Foto wurde kein lesbarer Barcode gefunden. Fotografiere ihn gerade, scharf und mit etwas Abstand erneut.');
+    } finally {
+      URL.revokeObjectURL(imageUrl);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      setPhotoLoading(false);
+    }
+  };
+
+  const openStandaloneScanner = () => {
+    window.open(window.location.href, '_blank', 'noopener,noreferrer');
+  };
 
   return (
     <Modal isOpen onClose={onClose} title="Barcode scannen">
@@ -109,6 +172,28 @@ function BarcodeScanner({ onClose, onDetected }) {
         </div>
         <p>Kamera ruhig über den Strichcode halten – die Erkennung startet automatisch.</p>
         {cameraError && <div className="notice notice-error">{cameraError}</div>}
+        <div className="scanner-fallback-actions">
+          <input
+            ref={fileInputRef}
+            className="visually-hidden"
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={handlePhoto}
+          />
+          <button className="btn btn-primary" type="button" onClick={() => fileInputRef.current?.click()} disabled={photoLoading}>
+            <Camera size={18} />
+            {photoLoading ? 'Barcode wird erkannt…' : 'Foto aufnehmen'}
+          </button>
+          {window.self !== window.top && window.isSecureContext && (
+            <button className="btn btn-secondary" type="button" onClick={openStandaloneScanner}>
+              <ScanLine size={18} />
+              In neuem Fenster öffnen
+            </button>
+          )}
+        </div>
+        <p className="scanner-privacy-note">Das Foto bleibt auf deinem Gerät und wird nur lokal zur Barcode-Erkennung verarbeitet.</p>
+        {photoError && <div className="notice notice-error">{photoError}</div>}
         <form
           className="barcode-manual-form"
           onSubmit={(event) => {

@@ -2498,6 +2498,16 @@ h3 {
   text-align: center;
 }
 
+.visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  overflow: hidden !important;
+  clip: rect(0 0 0 0) !important;
+  clip-path: inset(50%) !important;
+  white-space: nowrap !important;
+}
+
 .scanner-viewport {
   position: relative;
   overflow: hidden;
@@ -2545,6 +2555,19 @@ h3 {
   background: rgb(0 0 0 / 0.45);
   color: #fff;
   cursor: pointer;
+}
+
+.scanner-fallback-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 9px;
+}
+
+.scanner-dialog > .scanner-privacy-note {
+  margin-top: -6px;
+  color: var(--text-muted);
+  font-size: 0.76rem;
 }
 
 .barcode-manual-form {
@@ -2832,8 +2855,13 @@ h3 {
   }
 
   .inventory-form-grid,
-  .barcode-manual-form {
+  .barcode-manual-form,
+  .scanner-fallback-actions {
     grid-template-columns: 1fr;
+  }
+
+  .scanner-fallback-actions {
+    display: grid;
   }
 
   .inventory-grid {
