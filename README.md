@@ -1,8 +1,40 @@
-# KitchenGun
+# KitchenGun Home Assistant Add-on
 
-KitchenGun ist ein Rezeptbuch mit Chefkoch-Import, Favoriten, Kochmodus, Wochenplan, skalierbaren Portionen und Einkaufsliste. Die App läuft lokal als Vite/Express-Projekt und ist zusätzlich als Home-Assistant-Add-on installierbar.
+KitchenGun läuft als Home-Assistant-Add-on über Ingress. Das Add-on baut das React-Frontend, startet die Express-API und speichert die SQLite-Datenbank persistent in `/data/kitchengun.sqlite`.
 
-## Lokal starten
+## Funktionen
+
+- Rezeptbuch mit Chefkoch-Import und Favoriten
+- Vorratsverwaltung mit manueller Erfassung und Barcode-Scanner
+- Foto-Scanner-Fallback für die Home-Assistant-App und Browser ohne Live-Kamerazugriff
+- Automatische Produktdaten über Open Food Facts
+- Rezeptfilter nach vorhandenen Zutaten und optionaler Bestandsabbau nach dem Kochen
+- Kochmodus mit Schritt-Checkliste
+- Wochenplan mit Frühstück, Mittag, Abendessen und Snack
+- Kompakte Dashboard-Kachel für den heutigen Essensplan
+- Zutaten aus geplanten Mahlzeiten direkt auf die Einkaufsliste übernehmen
+- Einkaufsliste mit Mengenaggregation
+
+## Installation
+
+1. Dieses Repository als Add-on-Repository in Home Assistant hinzufügen.
+2. Add-on `KitchenGun` installieren.
+3. Add-on starten.
+4. KitchenGun über die Seitenleiste öffnen.
+
+## Dashboard-Kachel
+
+KitchenGun stellt unter `/today-card` eine reduzierte Ansicht für Home-Assistant-Dashboards bereit.
+
+Home-Assistant-Ingress initialisiert den statischen Add-on-Pfad erst, wenn die App einmal über die Seitenleiste geöffnet wurde. Für eine Dashboard-Karte, die sofort nach dem Laden der Übersicht funktioniert, aktiviere in der Add-on-Konfiguration unter Netzwerk optional den Port `8099/tcp` und verwende in der Webpage-Karte `http://<home-assistant-host>:8099/today-card`.
+
+Der Direktzugang erlaubt nur die Lese-Endpunkte der Tageskarte (`/today-card` und `/api/meal-plan/today`). Die normale App und alle Schreib-APIs bleiben hinter Ingress.
+
+## Daten
+
+Rezepte, Zutaten und Einkaufsliste liegen in der SQLite-Datei `/data/kitchengun.sqlite`. Home-Assistant-Backups sichern diese Datei zusammen mit dem Add-on.
+
+## Entwicklung
 
 Backend:
 
@@ -20,35 +52,4 @@ npm install
 npm run dev
 ```
 
-Das Frontend ruft `/api` relativ auf. Lokal proxyt Vite die API auf `http://localhost:5001`.
-
-## Produktionsmodus
-
-```bash
-cd frontend
-npm run build
-cd ../backend
-npm start
-```
-
-Der Express-Server liefert dann die Dateien aus `frontend/dist` aus und stellt die API unter derselben Origin bereit.
-
-## Home Assistant
-
-Der Ordner `kitchengun/` ist das Add-on. Wenn dieses Repository in Home Assistant als Add-on-Repository hinzugefügt wird, erscheint `KitchenGun` als installierbares Add-on mit Ingress-Seitenleisteneintrag.
-
-Persistente Daten liegen im Add-on unter `/data/kitchengun.sqlite`.
-
-### Dashboard-Kachel
-
-Für Home-Assistant-Dashboards gibt es eine kompakte Tagesansicht unter `/today-card`. Verwende in einer Home-Assistant-Webpage-Karte die Add-on-URL mit diesem Pfad, zum Beispiel `/74b42f4f_kitchengun/today-card`.
-
-## Features
-
-- Rezepte anlegen, bearbeiten, importieren und als Favorit markieren
-- Zutaten automatisch auf Portionen skalieren
-- Kochmodus mit Schritt-Checkliste und lokal gespeichertem Fortschritt
-- Wochenplan mit Frühstück, Mittag, Abendessen und Snack
-- Kompakte Home-Assistant-Dashboard-Kachel für den heutigen Essensplan
-- Zutaten einzelner geplanter Mahlzeiten oder einer ganzen Woche auf die Einkaufsliste übernehmen
-- Einkaufsliste mit Mengenaggregation und Fortschrittsanzeige
+Das Vite-Frontend proxyt `/api` lokal auf `http://localhost:5001`.

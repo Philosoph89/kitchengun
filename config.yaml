@@ -1,0 +1,25 @@
+name: KitchenGun
+version: "1.5.1"
+slug: kitchengun
+description: Rezeptbuch, Vorratsverwaltung mit Barcode-Scanner, Wochenplaner und Einkaufsliste für Home Assistant.
+url: https://github.com/Philosoph89/kitchengun
+arch:
+  - aarch64
+  - amd64
+  - armhf
+  - armv7
+  - i386
+startup: services
+boot: auto
+init: false
+ingress: true
+ingress_port: 8099
+ports:
+  8099/tcp: null
+ports_description:
+  8099/tcp: Optionaler Direktzugang fuer die Dashboard-Kachel
+panel_icon: mdi:chef-hat
+panel_title: KitchenGun
+homeassistant_api: false
+options: {}
+schema: {}
